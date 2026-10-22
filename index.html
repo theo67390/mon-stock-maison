@@ -5,12 +5,24 @@
 <meta name="theme-color" content="#205b45"><meta name="description" content="Gestion du stock alimentaire familial">
 <link rel="manifest" href="manifest.json"><link rel="icon" href="icon.svg">
 <title>Mon Stock Maison</title>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 <style>
 :root{--green:#205b45;--pale:#e8f3ec;--bg:#f5f7f5;--ink:#18231d;--muted:#647168;--line:#dce5de;--orange:#fff0d9}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px system-ui,-apple-system,sans-serif}header{background:var(--green);color:white;padding:20px 16px 18px;border-radius:0 0 22px 22px}header h1{font-size:24px;margin:0 0 4px}header p{margin:0;color:#e1f2e8;font-size:14px}.wrap{max-width:760px;margin:auto;padding:14px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}.stat{background:#ffffff20;border-radius:12px;padding:10px}.stat b{display:block;font-size:22px}.stat span{font-size:12px;color:#e1f2e8}.tabs{display:flex;gap:7px;overflow:auto;padding:12px 0}.tab{border:1px solid var(--line);background:white;border-radius:999px;padding:9px 13px;white-space:nowrap}.tab.active{background:var(--green);color:white;border-color:var(--green)}.card{background:white;border:1px solid var(--line);border-radius:16px;padding:15px;margin:10px 0}.card h2{font-size:18px;margin:0 0 12px}label{font-size:13px;font-weight:650;display:block;margin:10px 0 5px}input,select{width:100%;padding:12px;border:1px solid #cbd7ce;border-radius:10px;font:inherit;background:white;color:var(--ink)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.btn{border:0;background:var(--green);color:white;border-radius:11px;padding:12px 14px;font:600 15px system-ui;cursor:pointer}.btn.secondary{background:var(--pale);color:var(--green)}.btn.danger{background:#fce8e6;color:#a52b21}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.search{margin-bottom:10px}.item{border:1px solid var(--line);border-radius:13px;background:white;padding:12px;margin:8px 0;display:flex;gap:10px;align-items:center}.itemmain{flex:1;min-width:0}.itemname{font-weight:700;overflow-wrap:anywhere}.meta{font-size:13px;color:var(--muted);margin-top:4px}.qty{font-weight:750;white-space:nowrap}.smallbtn{border:1px solid var(--line);background:white;border-radius:9px;padding:7px 10px;font-size:17px}.empty{text-align:center;color:var(--muted);padding:24px 10px}.notice{font-size:13px;color:var(--muted);line-height:1.45}.hidden{display:none!important}.warning{background:var(--orange);padding:10px;border-radius:10px;font-size:13px}.footer{color:var(--muted);font-size:12px;text-align:center;padding:18px}.expiry{color:#9b5b12;font-size:12px;margin-top:4px}
-</style></head>
+.loginbox{max-width:520px;margin:22px auto;background:white;border:1px solid var(--line);border-radius:16px;padding:18px}.loginbox h2{margin-top:0}.loginbox input{margin-bottom:8px}.syncstatus{font-size:13px;color:#e1f2e8;margin-top:6px}</style></head>
 <body>
-<header><h1>🥬 Mon Stock Maison</h1><p>Les réserves de toute la famille, au même endroit</p><div class="stats"><div class="stat"><b id="count">0</b><span>produits</span></div><div class="stat"><b id="units">0</b><span>quantités</span></div><div class="stat"><b id="soon">0</b><span>dates proches</span></div></div></header>
+<header><h1>🥬 Mon Stock Maison</h1><p>Les réserves de toute la famille, au même endroit</p><div class="syncstatus" id="syncstatus">Connexion non établie</div><div class="stats"><div class="stat"><b id="count">0</b><span>produits</span></div><div class="stat"><b id="units">0</b><span>quantités</span></div><div class="stat"><b id="soon">0</b><span>dates proches</span></div></div></header>
+<section class="loginbox" id="loginbox">
+<h2>🔐 Accès familial</h2>
+<p class="notice">Connecte-toi avec l’adresse e-mail et le mot de passe communs à la famille. Ne partage pas cet accès en dehors de la famille.</p>
+<label for="loginemail">Adresse e-mail</label><input id="loginemail" type="email" autocomplete="username" placeholder="famille@example.com">
+<label for="loginpassword">Mot de passe</label><input id="loginpassword" type="password" autocomplete="current-password" placeholder="Mot de passe">
+<div class="actions"><button class="btn" id="loginbtn">Se connecter</button><button class="btn secondary" id="logoutbtn" style="display:none">Se déconnecter</button></div>
+<p id="loginmsg" class="notice" role="status"></p>
+</section>
+<div id="appcontent" class="hidden">
 <main class="wrap">
 <div class="tabs" id="tabs"></div>
 <section class="card"><h2>➕ Ajouter un aliment</h2>
@@ -21,24 +33,128 @@
 <div class="actions"><button class="btn" id="add">Ajouter au stock</button><button class="btn secondary" id="scan">📷 Scanner</button></div><p id="scanmsg" class="notice"></p>
 </section>
 <section class="card"><h2>📦 Mon inventaire</h2><input class="search" id="search" placeholder="Rechercher un aliment…"><div id="list"></div></section>
-<section class="card"><h2>🔄 Sauvegarde et partage</h2><p class="notice">Cette version conserve les données sur ce téléphone. Pour partager un stock en direct entre plusieurs téléphones, il faut publier l’application et activer une base familiale partagée (voir LISEZ-MOI).</p><div class="actions"><button class="btn secondary" id="export">Exporter une sauvegarde</button><label class="btn secondary" for="importfile" style="margin:0;display:inline-flex;align-items:center">Importer une sauvegarde</label><input id="importfile" type="file" accept="application/json" class="hidden"></div></section>
-<p class="footer">Mon Stock Maison · Version de départ · Les données restent sur cet appareil.</p>
+<section class="card"><h2>🔄 Sauvegarde et partage</h2><p class="notice">Le stock est partagé en direct entre les téléphones connectés au compte familial. Utilise uniquement le compte familial autorisé.</p><div class="actions"><button class="btn secondary" id="export">Exporter une sauvegarde</button><label class="btn secondary" for="importfile" style="margin:0;display:inline-flex;align-items:center">Importer une sauvegarde</label><input id="importfile" type="file" accept="application/json" class="hidden"></div></section>
+<p class="footer">Mon Stock Maison · Stock familial synchronisé avec Firebase.</p>
 </main>
+</div>
 <script>
-const places=["Tous","Placard","Réfrigérateur","Congélateur 1","Congélateur 2","Autre"];
-let filter="Tous", items=JSON.parse(localStorage.getItem("msm-items")||"[]");
-const $=id=>document.getElementById(id);
-function save(){localStorage.setItem("msm-items",JSON.stringify(items));render()}
+const firebaseConfig = {
+  apiKey: "AIzaSyCjaIoeDmk9ZQYtoGAPYgrNstUv-Ty5lzE",
+  authDomain: "mon-stock-maison-807ab.firebaseapp.com",
+  databaseURL: "https://mon-stock-maison-807ab-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "mon-stock-maison-807ab",
+  storageBucket: "mon-stock-maison-807ab.firebasestorage.app",
+  messagingSenderId: "399838939106",
+  appId: "1:399838939106:web:c8b12524d957eb55f69bbb"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const database = firebase.database();
+let itemsRef = null;
+let filter = "Tous";
+let items = JSON.parse(localStorage.getItem("msm-items") || "[]");
+const places = ["Tous","Placard","Réfrigérateur","Congélateur 1","Congélateur 2","Autre"];
+const $ = id => document.getElementById(id);
+
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function renderTabs(){$("tabs").innerHTML=places.map(p=>`<button class="tab ${filter===p?"active":""}" data-place="${p}">${p==="Tous"?"Tout":p}</button>`).join("");$("tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{filter=b.dataset.place;renderTabs();render()})}
-function render(){let shown=items.filter(x=>(filter==="Tous"||x.place===filter)&&x.name.toLowerCase().includes($("search").value.toLowerCase()));$("count").textContent=items.length;$("units").textContent=items.reduce((a,x)=>a+Number(x.qty||0),0);const today=new Date();today.setHours(0,0,0,0);$("soon").textContent=items.filter(x=>x.expiry&&((new Date(x.expiry)-today)/86400000)<=7&&((new Date(x.expiry)-today)/86400000)>=0).length;
-$("list").innerHTML=shown.length?shown.map(x=>`<div class="item"><div class="itemmain"><div class="itemname">${esc(x.name)}</div><div class="meta">${esc(x.place)}${x.barcode?" · Code "+esc(x.barcode):""}</div>${x.expiry?`<div class="expiry">Date limite : ${esc(x.expiry)}</div>`:""}</div><div style="text-align:right"><div class="qty">${esc(x.qty)} ${esc(x.unit)}</div><div class="actions" style="justify-content:flex-end"><button class="smallbtn" data-dec="${x.id}" aria-label="Retirer une unité">−</button><button class="smallbtn" data-inc="${x.id}" aria-label="Ajouter une unité">+</button><button class="smallbtn" data-del="${x.id}" aria-label="Supprimer">🗑</button></div></div></div>`).join(""):'<div class="empty">Aucun aliment ici pour le moment.<br>Ajoute ton premier produit ci-dessus.</div>';
-$("list").querySelectorAll("[data-inc]").forEach(b=>b.onclick=()=>{let x=items.find(i=>i.id===b.dataset.inc);x.qty=Number(x.qty)+1;save()});$("list").querySelectorAll("[data-dec]").forEach(b=>b.onclick=()=>{let x=items.find(i=>i.id===b.dataset.dec);x.qty=Math.max(0,Number(x.qty)-1);if(!x.qty)items=items.filter(i=>i.id!==x.id);save()});$("list").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{if(confirm("Supprimer ce produit du stock ?")){items=items.filter(i=>i.id!==b.dataset.del);save()}})}
-$("add").onclick=()=>{let name=$("name").value.trim(),qty=Number($("qty").value);if(!name||!Number.isFinite(qty)||qty<=0){alert("Indique un nom et une quantité valide.");return}items.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),name,qty,unit:$("unit").value,place:$("place").value,expiry:$("expiry").value,barcode:$("barcode").value.trim()});$("name").value="";$("qty").value="1";$("expiry").value="";$("barcode").value="";save()};
+function saveLocal(){localStorage.setItem("msm-items",JSON.stringify(items));}
+function renderTabs(){
+  $("tabs").innerHTML=places.map(p=>`<button class="tab ${filter===p?"active":""}" data-place="${p}">${p==="Tous"?"Tout":p}</button>`).join("");
+  $("tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{filter=b.dataset.place;renderTabs();render()});
+}
+function render(){
+  let q=$("search").value.toLowerCase();
+  let shown=items.filter(x=>(filter==="Tous"||x.place===filter)&&String(x.name||"").toLowerCase().includes(q));
+  $("count").textContent=items.length;
+  $("units").textContent=items.reduce((a,x)=>a+Number(x.qty||0),0);
+  const today=new Date();today.setHours(0,0,0,0);
+  $("soon").textContent=items.filter(x=>x.expiry&&((new Date(x.expiry)-today)/86400000)<=7&&((new Date(x.expiry)-today)/86400000)>=0).length;
+  $("list").innerHTML=shown.length?shown.map(x=>`<div class="item"><div class="itemmain"><div class="itemname">${esc(x.name)}</div><div class="meta">${esc(x.place)}${x.barcode?" · Code "+esc(x.barcode):""}</div>${x.expiry?`<div class="expiry">Date limite : ${esc(x.expiry)}</div>`:""}</div><div style="text-align:right"><div class="qty">${esc(x.qty)} ${esc(x.unit)}</div><div class="actions" style="justify-content:flex-end"><button class="smallbtn" data-dec="${esc(x.id)}" aria-label="Retirer une unité">−</button><button class="smallbtn" data-inc="${esc(x.id)}" aria-label="Ajouter une unité">+</button><button class="smallbtn" data-del="${esc(x.id)}" aria-label="Supprimer">🗑</button></div></div></div>`).join(""):'<div class="empty">Aucun aliment ici pour le moment.<br>Ajoute ton premier produit ci-dessus.</div>';
+  $("list").querySelectorAll("[data-inc]").forEach(b=>b.onclick=()=>changeQty(b.dataset.inc,1));
+  $("list").querySelectorAll("[data-dec]").forEach(b=>b.onclick=()=>changeQty(b.dataset.dec,-1));
+  $("list").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{if(confirm("Supprimer ce produit du stock familial ?"))removeItem(b.dataset.del)});
+}
+async function changeQty(id, delta){
+  if(!itemsRef)return;
+  const x=items.find(i=>i.id===id);if(!x)return;
+  const qty=Math.max(0,Number(x.qty||0)+delta);
+  try{if(qty<=0)await itemsRef.child(id).remove();else await itemsRef.child(id).update({qty});}
+  catch(e){alert("Modification impossible. Vérifie la connexion et les règles de sécurité Firebase.");}
+}
+async function removeItem(id){if(!itemsRef)return;try{await itemsRef.child(id).remove()}catch(e){alert("Suppression impossible. Vérifie les règles de sécurité Firebase.");}}
+$("add").onclick=async()=>{
+  let name=$("name").value.trim(),qty=Number($("qty").value);
+  if(!name||!Number.isFinite(qty)||qty<=0){alert("Indique un nom et une quantité valide.");return}
+  if(!itemsRef){alert("Connecte-toi d’abord au compte familial.");return}
+  try{
+    const ref=itemsRef.push();
+    await ref.set({id:ref.key,name,qty,unit:$("unit").value,place:$("place").value,expiry:$("expiry").value,barcode:$("barcode").value.trim()});
+    $("name").value="";$("qty").value="1";$("expiry").value="";$("barcode").value="";
+  }catch(e){alert("Ajout impossible. Vérifie les règles de sécurité Firebase.");}
+};
 $("search").oninput=render;
 $("export").onclick=()=>{let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(items,null,2)],{type:"application/json"}));a.download="mon-stock-maison.json";a.click();URL.revokeObjectURL(a.href)};
-$("importfile").onchange=async e=>{try{let data=JSON.parse(await e.target.files[0].text());if(!Array.isArray(data))throw Error();if(confirm("Remplacer le stock actuel par la sauvegarde ?")){items=data;save()}}catch{alert("Fichier de sauvegarde invalide.")}e.target.value=""};
-$("scan").onclick=async()=>{let msg=$("scanmsg");if(!("BarcodeDetector"in window)){msg.textContent="Le scan caméra n'est pas pris en charge par ce navigateur. Tu peux saisir le code-barres manuellement.";return}try{let detector=new BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e","code_128"]});let stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});let video=document.createElement("video");video.srcObject=stream;video.setAttribute("playsinline","");await video.play();let overlay=document.createElement("div");overlay.style="position:fixed;inset:0;background:#000e;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;color:white";let close=document.createElement("button");close.className="btn";close.textContent="Annuler le scan";let text=document.createElement("p");text.textContent="Place le code-barres devant la caméra";video.style="width:min(90vw,500px);border-radius:14px";overlay.append(video,text,close);document.body.append(overlay);let stopped=false;function stop(){stopped=true;stream.getTracks().forEach(t=>t.stop());overlay.remove()}close.onclick=stop;async function tick(){if(stopped)return;try{let codes=await detector.detect(video);if(codes.length){$("barcode").value=codes[0].rawValue;msg.textContent="Code lu. Recherche le produit ou saisis son nom.";let r=await fetch("https://world.openfoodfacts.org/api/v2/product/"+encodeURIComponent(codes[0].rawValue)+".json");let j=await r.json();if(j.status===1){let p=j.product; if(!$("name").value)$("name").value=p.product_name_fr||p.product_name||"";msg.textContent="Produit reconnu si disponible dans Open Food Facts. Vérifie le nom et complète les informations."; }stop();return}}catch{}requestAnimationFrame(tick)}tick()}catch(e){msg.textContent="Caméra indisponible. Autorise l'accès à la caméra ou saisis le code manuellement."}};
+$("importfile").onchange=async e=>{
+  try{
+    let data=JSON.parse(await e.target.files[0].text());if(!Array.isArray(data))throw Error();
+    if(confirm("Remplacer le stock familial partagé par cette sauvegarde ? Cette action affectera tous les téléphones.")){
+      const obj={};data.forEach(x=>{const id=String(x.id||itemsRef.push().key);obj[id]={...x,id}});
+      await itemsRef.set(obj);
+    }
+  }catch(err){alert("Import impossible. Vérifie le fichier et les règles de sécurité Firebase.");}
+  e.target.value="";
+};
+$("scan").onclick=async()=>{
+  let msg=$("scanmsg");
+  if(!("BarcodeDetector"in window)){msg.textContent="Le scan caméra n'est pas pris en charge par ce navigateur. Tu peux saisir le code-barres manuellement.";return}
+  try{
+    let detector=new BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e","code_128"]});
+    let stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+    let video=document.createElement("video");video.srcObject=stream;video.setAttribute("playsinline","");await video.play();
+    let overlay=document.createElement("div");overlay.style="position:fixed;inset:0;background:#000e;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;color:white";
+    let close=document.createElement("button");close.className="btn";close.textContent="Annuler le scan";
+    let text=document.createElement("p");text.textContent="Place le code-barres devant la caméra";
+    video.style="width:min(90vw,500px);border-radius:14px";overlay.append(video,text,close);document.body.append(overlay);
+    let stopped=false;function stop(){stopped=true;stream.getTracks().forEach(t=>t.stop());overlay.remove()}close.onclick=stop;
+    async function tick(){if(stopped)return;try{let codes=await detector.detect(video);if(codes.length){$("barcode").value=codes[0].rawValue;msg.textContent="Code lu. Recherche du produit…";let r=await fetch("https://world.openfoodfacts.org/api/v2/product/"+encodeURIComponent(codes[0].rawValue)+".json");let j=await r.json();if(j.status===1){let p=j.product;if(!$("name").value)$("name").value=p.product_name_fr||p.product_name||"";msg.textContent="Vérifie le nom et complète les informations."; }stop();return}}catch{}requestAnimationFrame(tick)}tick();
+  }catch(e){msg.textContent="Caméra indisponible. Autorise l'accès à la caméra ou saisis le code manuellement."}
+};
+$("loginbtn").onclick=async()=>{
+  $("loginmsg").textContent="Connexion en cours…";
+  try{await auth.signInWithEmailAndPassword($("loginemail").value.trim(),$("loginpassword").value);}
+  catch(e){$("loginmsg").textContent="Connexion impossible. Vérifie l’adresse, le mot de passe et que l’accès e-mail/mot de passe est activé dans Firebase Authentication.";}
+};
+$("logoutbtn").onclick=()=>auth.signOut();
+auth.onAuthStateChanged(async user=>{
+  if(!user){
+    if(itemsRef){itemsRef.off();itemsRef=null;}
+    $("loginbox").classList.remove("hidden");$("appcontent").classList.add("hidden");
+    $("logoutbtn").style.display="none";$("syncstatus").textContent="Déconnecté";
+    return;
+  }
+  $("loginbox").classList.add("hidden");$("appcontent").classList.remove("hidden");
+  $("logoutbtn").style.display="inline-block";$("syncstatus").textContent="Connecté · synchronisation du stock familial";
+  renderTabs();
+  itemsRef=database.ref("familyStock/items");
+  itemsRef.on("value",async snap=>{
+    const val=snap.val();
+    if(val===null){
+      const local=JSON.parse(localStorage.getItem("msm-items")||"[]");
+      if(local.length){
+        const obj={};local.forEach(x=>{const id=String(x.id||itemsRef.push().key);obj[id]={...x,id}});
+        try{await itemsRef.set(obj);return}catch(e){$("syncstatus").textContent="Connecté, mais accès à la base refusé : vérifie les règles Firebase.";}
+      }
+      items=[];
+    }else{
+      items=Object.entries(val).map(([id,x])=>({...x,id}));
+    }
+    saveLocal();render();
+    $("syncstatus").textContent="Stock familial synchronisé";
+  },err=>{
+    $("syncstatus").textContent="Erreur d’accès à la base : vérifie les règles Firebase.";
+    $("loginmsg").textContent="Connexion réussie, mais la base de données refuse l’accès. Les règles Firebase doivent autoriser uniquement le compte familial.";
+  });
+});
 renderTabs();render();
 if("serviceWorker"in navigator && location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").catch(()=>{});
 </script></body></html>
