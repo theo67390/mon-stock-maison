@@ -1,0 +1,17 @@
+{
+  "name": "Mon Stock Maison",
+  "short_name": "Mon Stock",
+  "lang": "fr-FR",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f7f5",
+  "theme_color": "#205b45",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
