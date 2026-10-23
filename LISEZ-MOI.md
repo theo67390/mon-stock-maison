@@ -42,3 +42,6 @@ L'emplacement « Cave à vin » est également disponible dans le formulaire d'a
 
 ## Tableau, alertes et liste de courses
 Cette version affiche l'inventaire sous forme de tableau, signale les produits dont la date de péremption est dépassée ou dans les 7 prochains jours, et ajoute une liste de courses partagée dans Firebase. La génération automatique de courses utilise les produits dont la quantité est inférieure au champ « Stock minimum » ; ce champ doit être renseigné dans les données des produits pour être utile. Les alertes sont visibles dans l'application (pas de notifications système automatiques).
+
+
+Correction des emplacements à partir de la liste ODS : « Cave » → « Autre » (65 produits), « Congélateur cave » → « Congélateur cave » (24 produits), « Congélateur cuisine » → « Congélateur cuisine » (17 produits). Le bouton « Corriger les emplacements » ne modifie que le champ emplacement des produits reconnus, sans réimporter ni dupliquer les articles.
