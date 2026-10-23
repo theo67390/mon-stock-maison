@@ -39,3 +39,6 @@ Ne passez pas à un forfait payant si vous souhaitez éviter les frais. Vérifie
 Une version préparée de votre liste est fournie en fichier `stock_maison_import.csv`. Dans Mon Stock Maison, connectez-vous au compte familial, puis utilisez « Importer une liste CSV ». L'import ajoute les produits au stock familial sans remplacer les produits déjà présents. Vérifiez les emplacements après import : « Congélateur cave » devient « Congélateur 1 », « Congélateur cuisine » devient « Congélateur 2 », et « Cave » devient « Autre ». Les dates de la colonne « Notes » sont conservées comme notes et ne sont pas converties en dates de péremption.
 
 L'emplacement « Cave à vin » est également disponible dans le formulaire d'ajout et dans les filtres.
+
+## Tableau, alertes et liste de courses
+Cette version affiche l'inventaire sous forme de tableau, signale les produits dont la date de péremption est dépassée ou dans les 7 prochains jours, et ajoute une liste de courses partagée dans Firebase. La génération automatique de courses utilise les produits dont la quantité est inférieure au champ « Stock minimum » ; ce champ doit être renseigné dans les données des produits pour être utile. Les alertes sont visibles dans l'application (pas de notifications système automatiques).
