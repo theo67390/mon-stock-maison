@@ -28,12 +28,13 @@
 <section class="card"><h2>➕ Ajouter un aliment</h2>
 <label for="name">Nom du produit</label><input id="name" placeholder="Ex. : steaks hachés, petits pois…" autocomplete="off">
 <div class="grid"><div><label for="qty">Quantité</label><input id="qty" type="number" min="0.1" step="any" value="1"></div><div><label for="unit">Unité</label><select id="unit"><option>pièce(s)</option><option>paquet(s)</option><option>sachet(s)</option><option>boîte(s)</option><option>bocal(aux)</option><option>portion(s)</option><option>kg</option><option>g</option><option>L</option></select></div></div>
-<label for="place">Emplacement</label><select id="place"><option>Placard</option><option>Réfrigérateur</option><option>Congélateur 1</option><option>Congélateur 2</option><option>Autre</option></select>
+<label for="place">Emplacement</label><select id="place"><option>Placard</option><option>Réfrigérateur</option><option>Congélateur 1</option><option>Congélateur 2</option><option>Cave à vin</option><option>Autre</option></select>
 <div class="grid"><div><label for="expiry">Date limite (facultatif)</label><input id="expiry" type="date"></div><div><label for="barcode">Code-barres</label><input id="barcode" inputmode="numeric" placeholder="Facultatif"></div></div>
 <div class="actions"><button class="btn" id="add">Ajouter au stock</button><button class="btn secondary" id="scan">📷 Scanner</button></div><p id="scanmsg" class="notice"></p>
 </section>
 <section class="card"><h2>📦 Mon inventaire</h2><input class="search" id="search" placeholder="Rechercher un aliment…"><div id="list"></div></section>
-<section class="card"><h2>🔄 Sauvegarde et partage</h2><p class="notice">Le stock est partagé en direct entre les téléphones connectés au compte familial. Utilise uniquement le compte familial autorisé.</p><div class="actions"><button class="btn secondary" id="export">Exporter une sauvegarde</button><label class="btn secondary" for="importfile" style="margin:0;display:inline-flex;align-items:center">Importer une sauvegarde</label><input id="importfile" type="file" accept="application/json" class="hidden"></div></section>
+<section class="card"><h2>🔄 Sauvegarde et partage</h2><p class="notice">Le stock est partagé en direct entre les téléphones connectés au compte familial. Utilise uniquement le compte familial autorisé.</p><div class="actions"><button class="btn secondary" id="export">Exporter une sauvegarde</button><label class="btn secondary" for="importfile" style="margin:0;display:inline-flex;align-items:center">Importer une sauvegarde</label><input id="importfile" type="file" accept="application/json" class="hidden">
+<label class="btn secondary" for="csvimportfile" style="margin:0;display:inline-flex;align-items:center">Importer une liste CSV</label><input id="csvimportfile" type="file" accept=".csv,text/csv" class="hidden"></div></section>
 <p class="footer">Mon Stock Maison · Stock familial synchronisé avec Firebase.</p>
 </main>
 </div>
@@ -53,7 +54,7 @@ const database = firebase.database();
 let itemsRef = null;
 let filter = "Tous";
 let items = JSON.parse(localStorage.getItem("msm-items") || "[]");
-const places = ["Tous","Placard","Réfrigérateur","Congélateur 1","Congélateur 2","Autre"];
+const places = ["Tous","Placard","Réfrigérateur","Congélateur 1","Congélateur 2","Cave à vin","Autre"];
 const $ = id => document.getElementById(id);
 
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
@@ -104,6 +105,72 @@ $("importfile").onchange=async e=>{
   }catch(err){alert("Import impossible. Vérifie le fichier et les règles de sécurité Firebase.");}
   e.target.value="";
 };
+
+function parseCSVLine(line, delimiter){
+  const out=[]; let cur="", quoted=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"' && quoted && line[i+1]==='"'){cur+='"';i++}
+    else if(ch==='"'){quoted=!quoted}
+    else if(ch===delimiter && !quoted){out.push(cur);cur=""}
+    else cur+=ch;
+  }
+  out.push(cur);return out;
+}
+$("csvimportfile").onchange=async e=>{
+  const file=e.target.files && e.target.files[0];
+  if(!file)return;
+  try{
+    if(!itemsRef){alert("Connecte-toi d’abord au compte familial.");return}
+    let text=await file.text();
+    text=text.replace(/^\uFEFF/,"");
+    const first=text.split(/\r?\n/,1)[0]||"";
+    const delimiter=(first.split(";").length>=first.split(",").length)?";":",";
+    const lines=text.split(/\r?\n/).filter(line=>line.trim().length);
+    if(lines.length<2)throw Error("Fichier vide");
+    const headers=parseCSVLine(lines[0],delimiter).map(x=>x.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""));
+    const find=(...names)=>headers.findIndex(h=>names.includes(h));
+    const iName=find("produit","nom","nom du produit");
+    const iQty=find("quantite","quantite en stock","qty");
+    const iUnit=find("unite","unite de mesure");
+    const iPlace=find("emplacement","lieu","rangement");
+    const iExpiry=find("peremption","date de peremption","date limite","date limite de consommation");
+    const iBarcode=find("code-barres","codebarres","barcode","ean");
+    const iCategory=find("categorie","category");
+    const iMin=find("stock minimum","minimum");
+    const iNotes=find("notes","remarques");
+    if(iName<0)throw Error("Colonne Produit introuvable");
+    const parsed=[];
+    for(let n=1;n<lines.length;n++){
+      const cols=parseCSVLine(lines[n],delimiter);
+      const name=(cols[iName]||"").trim();if(!name)continue;
+      let q=(iQty>=0?(cols[iQty]||"1"):"1").trim().replace(",",".");
+      let qty=Number(q);if(!Number.isFinite(qty)||qty<=0)qty=1;
+      const unit=(iUnit>=0?(cols[iUnit]||"pièce(s)"):"pièce(s)").trim()||"pièce(s)";
+      let rawPlace=(iPlace>=0?(cols[iPlace]||"Autre"):"Autre").trim().toLowerCase();
+      let place="Autre";
+      if(rawPlace.includes("cave a vin") || rawPlace.includes("cave à vin"))place="Cave à vin";
+      else if(rawPlace.includes("placard")||rawPlace.includes("epicerie")||rawPlace==="cave")place="Autre";
+      if(rawPlace.includes("frigo")||rawPlace.includes("refrigerateur"))place="Réfrigérateur";
+      if(rawPlace.includes("congelateur") && (rawPlace.includes("1")||rawPlace.includes("cave")))place="Congélateur 1";
+      else if(rawPlace.includes("congelateur") && (rawPlace.includes("2")||rawPlace.includes("cuisine")))place="Congélateur 2";
+      let expiry=iExpiry>=0?(cols[iExpiry]||"").trim():"";
+      if(/^\d{2}\/\d{2}\/\d{4}$/.test(expiry)){const p=expiry.split("/");expiry=`${p[2]}-${p[1]}-${p[0]}`;}
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(expiry))expiry="";
+      parsed.push({name,qty,unit,place,expiry,barcode:iBarcode>=0?(cols[iBarcode]||"").trim():"",category:iCategory>=0?(cols[iCategory]||"").trim():"",minStock:iMin>=0?(cols[iMin]||"").trim():"",notes:iNotes>=0?(cols[iNotes]||"").trim():""});
+    }
+    if(!parsed.length)throw Error("Aucun produit trouvé");
+    if(!confirm(`Importer ${parsed.length} produits dans le stock familial partagé ? Les produits existants seront conservés.`))return;
+    for(const product of parsed){
+      const ref=itemsRef.push();
+      await ref.set({id:ref.key,...product});
+    }
+    alert(`${parsed.length} produits importés dans le stock familial partagé.`);
+  }catch(err){
+    alert("Import impossible : "+(err.message||"vérifie le format du fichier et les règles Firebase."));
+  }finally{e.target.value="";}
+};
+
 $("scan").onclick=async()=>{
   let msg=$("scanmsg");
   if(!("BarcodeDetector"in window)){msg.textContent="Le scan caméra n'est pas pris en charge par ce navigateur. Tu peux saisir le code-barres manuellement.";return}

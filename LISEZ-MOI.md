@@ -33,3 +33,9 @@ Cette version utilise Firebase Authentication (e-mail/mot de passe) et Realtime 
 7. Connectez-vous sur chaque téléphone avec le même compte familial.
 
 Ne passez pas à un forfait payant si vous souhaitez éviter les frais. Vérifiez que le projet et la base sont disponibles sur votre forfait actuel avant de continuer.
+
+
+## Importer votre liste LibreOffice / OpenOffice
+Une version préparée de votre liste est fournie en fichier `stock_maison_import.csv`. Dans Mon Stock Maison, connectez-vous au compte familial, puis utilisez « Importer une liste CSV ». L'import ajoute les produits au stock familial sans remplacer les produits déjà présents. Vérifiez les emplacements après import : « Congélateur cave » devient « Congélateur 1 », « Congélateur cuisine » devient « Congélateur 2 », et « Cave » devient « Autre ». Les dates de la colonne « Notes » sont conservées comme notes et ne sont pas converties en dates de péremption.
+
+L'emplacement « Cave à vin » est également disponible dans le formulaire d'ajout et dans les filtres.
