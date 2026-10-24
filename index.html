@@ -57,6 +57,11 @@ let itemsRef = null;
 let shoppingRef = null;
 let shoppingItems = [];
 let filter = "Tous";
+let filterProductValue = "";
+let filterPlaceValue = "";
+let filterExpiryValue = "";
+let filterNotesValue = "";
+let filterQtyValue = "";
 let items = JSON.parse(localStorage.getItem("msm-items") || "[]");
 const places = ["Tous","Placard","Réfrigérateur","Congélateur cuisine","Congélateur cave","Cave","Cave à vin"];
 // Référence issue du fichier d’inventaire d’origine : ne modifie que l’emplacement.
@@ -84,11 +89,11 @@ function renderTabs(){
 }
 function render(){
   let q=$("search").value.toLowerCase();
-  const fp=$("filterProduct")?.value.toLowerCase()||"";
-  const fl=$("filterPlace")?.value||"";
-  const fe=$("filterExpiry")?.value||"";
-  const fn=$("filterNotes")?.value.toLowerCase()||"";
-  const fq=$("filterQty")?.value||"";
+  const fp=filterProductValue.toLowerCase();
+  const fl=filterPlaceValue;
+  const fe=filterExpiryValue;
+  const fn=filterNotesValue.toLowerCase();
+  const fq=filterQtyValue;
   const filterToday=new Date();filterToday.setHours(0,0,0,0);
   const filterDayDiff=x=>Math.floor((new Date(x.expiry+"T00:00:00")-filterToday)/86400000);
   let shown=items.filter(x=>{
@@ -110,7 +115,7 @@ function render(){
   const dayDiff=x=>Math.floor((new Date(x.expiry+"T00:00:00")-today)/86400000);
   const near=items.filter(x=>x.expiry && dayDiff(x)>=0 && dayDiff(x)<=7);
   $("soon").textContent=near.length;
-  $("list").innerHTML=shown.length?`<table class="inventory"><thead><tr><th>Produit</th><th>Emplacement</th><th>Date limite</th><th>Notes</th><th>Quantité</th><th>Actions</th></tr><tr class="filterrow"><th><input class="colfilter" id="filterProduct" placeholder="Filtrer produit…" aria-label="Filtrer produit"></th><th><select class="colfilter" id="filterPlace" aria-label="Filtrer emplacement"><option value="">Tous</option>${[...new Set(items.map(i=>String(i.place||"Autre")))].sort((a,b)=>a.localeCompare(b,"fr")).map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join("")}</select></th><th><select class="colfilter" id="filterExpiry" aria-label="Filtrer péremption"><option value="">Toutes les dates</option><option value="none">Sans date</option><option value="expired">Périmés</option><option value="soon">Dans les 7 jours</option><option value="later">Plus de 7 jours</option></select></th><th><input class="colfilter" id="filterNotes" placeholder="Filtrer notes…" aria-label="Filtrer notes"></th><th><select class="colfilter" id="filterQty" aria-label="Filtrer quantité"><option value="">Toutes</option><option value="low">Quantité ≤ 1</option><option value="more">Quantité > 1</option></select></th><th></th></tr></thead><tbody>${shown.map(x=>{
+  $("list").innerHTML=shown.length?`<table class="inventory"><thead><tr><th>Produit</th><th>Emplacement</th><th>Date limite</th><th>Notes</th><th>Quantité</th><th>Actions</th></tr><tr class="filterrow"><th><input class="colfilter" id="filterProduct" value="${esc(filterProductValue)}" placeholder="Filtrer produit…" aria-label="Filtrer produit"></th><th><select class="colfilter" id="filterPlace" aria-label="Filtrer emplacement"><option value="" ${filterPlaceValue===""?"selected":""}>Tous</option>${[...new Set(items.map(i=>String(i.place||"Autre")))].sort((a,b)=>a.localeCompare(b,"fr")).map(p=>`<option value="${esc(p)}" ${filterPlaceValue===p?"selected":""}>${esc(p)}</option>`).join("")}</select></th><th><select class="colfilter" id="filterExpiry" aria-label="Filtrer péremption"><option value="" ${filterExpiryValue===""?"selected":""}>Toutes les dates</option><option value="none" ${filterExpiryValue==="none"?"selected":""}>Sans date</option><option value="expired" ${filterExpiryValue==="expired"?"selected":""}>Périmés</option><option value="soon" ${filterExpiryValue==="soon"?"selected":""}>Dans les 7 jours</option><option value="later" ${filterExpiryValue==="later"?"selected":""}>Plus de 7 jours</option></select></th><th><input class="colfilter" id="filterNotes" value="${esc(filterNotesValue)}" placeholder="Filtrer notes…" aria-label="Filtrer notes"></th><th><select class="colfilter" id="filterQty" aria-label="Filtrer quantité"><option value="" ${filterQtyValue===""?"selected":""}>Toutes</option><option value="low" ${filterQtyValue==="low"?"selected":""}>Quantité ≤ 1</option><option value="more" ${filterQtyValue==="more"?"selected":""}>Quantité > 1</option></select></th><th></th></tr></thead><tbody>${shown.map(x=>{
     const d=x.expiry?dayDiff(x):null;
     const dateLabel=!x.expiry?"—":d<0?`<span class="statuspill red">Dépassée · ${esc(x.expiry)}</span>`:d<=7?`<span class="statuspill orange">${esc(x.expiry)} · ${d===0?"aujourd’hui":d+" j"}</span>`:`<span class="statuspill green">${esc(x.expiry)}</span>`;
     return `<tr><td><strong>${esc(x.name)}</strong>${x.category?`<div class="mutedline">${esc(x.category)}</div>`:""}${x.barcode?`<div class="mutedline">Code : ${esc(x.barcode)}</div>`:""}</td><td>${esc(x.place||"Autre")}</td><td>${dateLabel}</td><td>${esc(x.notes||"—")}</td><td class="num">${esc(x.qty)} ${esc(x.unit||"")}</td><td><div class="actions" style="margin:0;flex-wrap:nowrap"><button class="smallbtn" data-dec="${esc(x.id)}" aria-label="Retirer une unité">−</button><button class="smallbtn" data-inc="${esc(x.id)}" aria-label="Ajouter une unité">+</button><button class="smallbtn" data-del="${esc(x.id)}" aria-label="Supprimer">🗑</button></div></td></tr>`;
@@ -152,9 +157,20 @@ $("add").onclick=async()=>{
   }catch(e){alert("Ajout impossible. Vérifie les règles de sécurité Firebase.");}
 };
 $("search").oninput=render;
-["filterProduct","filterPlace","filterExpiry","filterNotes","filterQty"].forEach(id=>{
-  const el=$(id); if(el) el.addEventListener("input",render);
-  if(el) el.addEventListener("change",render);
+// Les filtres sont recréés dans le tableau à chaque affichage :
+// on utilise un écouteur délégué et on garde les valeurs en mémoire.
+$("list").addEventListener("input",e=>{
+  if(!e.target.classList.contains("colfilter"))return;
+  if(e.target.id==="filterProduct")filterProductValue=e.target.value;
+  if(e.target.id==="filterNotes")filterNotesValue=e.target.value;
+  render();
+});
+$("list").addEventListener("change",e=>{
+  if(!e.target.classList.contains("colfilter"))return;
+  if(e.target.id==="filterPlace")filterPlaceValue=e.target.value;
+  if(e.target.id==="filterExpiry")filterExpiryValue=e.target.value;
+  if(e.target.id==="filterQty")filterQtyValue=e.target.value;
+  render();
 });
 $("export").onclick=()=>{let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(items,null,2)],{type:"application/json"}));a.download="mon-stock-maison.json";a.click();URL.revokeObjectURL(a.href)};
 $("importfile").onchange=async e=>{
