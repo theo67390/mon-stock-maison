@@ -159,26 +159,17 @@ $("add").onclick=async()=>{
 $("search").oninput=render;
 // Les filtres sont recréés dans le tableau à chaque affichage :
 // on utilise un écouteur délégué et on garde les valeurs en mémoire.
+// Les filtres texte gardent la saisie sans reconstruire le tableau à chaque lettre.
 $("list").addEventListener("input",e=>{
   if(!e.target.classList.contains("colfilter"))return;
-  const id=e.target.id;
-  if(id==="filterProduct")filterProductValue=e.target.value;
-  else if(id==="filterNotes")filterNotesValue=e.target.value;
-  else return;
-  // Le tableau est recréé par render() : restaurer le focus après
-  // la mise à jour du DOM afin de pouvoir taper sans recliquer.
-  const cursor=e.target.selectionStart;
-  render();
-  requestAnimationFrame(()=>{
-    const next=$(id);
-    if(next){
-      next.focus({preventScroll:true});
-      if(cursor!==null && typeof next.setSelectionRange==="function"){
-        const pos=Math.min(cursor,next.value.length);
-        next.setSelectionRange(pos,pos);
-      }
-    }
-  });
+  if(e.target.id==="filterProduct")filterProductValue=e.target.value;
+  else if(e.target.id==="filterNotes")filterNotesValue=e.target.value;
+});
+$("list").addEventListener("focusout",e=>{
+  if(e.target.classList.contains("colfilter") &&
+     (e.target.id==="filterProduct" || e.target.id==="filterNotes")){
+    render();
+  }
 });
 $("list").addEventListener("change",e=>{
   if(!e.target.classList.contains("colfilter"))return;
