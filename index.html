@@ -165,18 +165,20 @@ $("list").addEventListener("input",e=>{
   if(id==="filterProduct")filterProductValue=e.target.value;
   else if(id==="filterNotes")filterNotesValue=e.target.value;
   else return;
-  // Le tableau est recréé par render() : restaurer le focus et le curseur
-  // pour permettre de taper plusieurs caractères dans le filtre.
+  // Le tableau est recréé par render() : restaurer le focus après
+  // la mise à jour du DOM afin de pouvoir taper sans recliquer.
   const cursor=e.target.selectionStart;
   render();
-  const next=$(id);
-  if(next){
-    next.focus();
-    if(cursor!==null && typeof next.setSelectionRange==="function"){
-      const pos=Math.min(cursor,next.value.length);
-      next.setSelectionRange(pos,pos);
+  requestAnimationFrame(()=>{
+    const next=$(id);
+    if(next){
+      next.focus({preventScroll:true});
+      if(cursor!==null && typeof next.setSelectionRange==="function"){
+        const pos=Math.min(cursor,next.value.length);
+        next.setSelectionRange(pos,pos);
+      }
     }
-  }
+  });
 });
 $("list").addEventListener("change",e=>{
   if(!e.target.classList.contains("colfilter"))return;
