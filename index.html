@@ -161,9 +161,22 @@ $("search").oninput=render;
 // on utilise un écouteur délégué et on garde les valeurs en mémoire.
 $("list").addEventListener("input",e=>{
   if(!e.target.classList.contains("colfilter"))return;
-  if(e.target.id==="filterProduct")filterProductValue=e.target.value;
-  if(e.target.id==="filterNotes")filterNotesValue=e.target.value;
+  const id=e.target.id;
+  if(id==="filterProduct")filterProductValue=e.target.value;
+  else if(id==="filterNotes")filterNotesValue=e.target.value;
+  else return;
+  // Le tableau est recréé par render() : restaurer le focus et le curseur
+  // pour permettre de taper plusieurs caractères dans le filtre.
+  const cursor=e.target.selectionStart;
   render();
+  const next=$(id);
+  if(next){
+    next.focus();
+    if(cursor!==null && typeof next.setSelectionRange==="function"){
+      const pos=Math.min(cursor,next.value.length);
+      next.setSelectionRange(pos,pos);
+    }
+  }
 });
 $("list").addEventListener("change",e=>{
   if(!e.target.classList.contains("colfilter"))return;
